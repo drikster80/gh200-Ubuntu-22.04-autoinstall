@@ -1,0 +1,67 @@
+#cloud-config
+# This will install the GH200 on Ubuntu-22.04. The system must be connected to the internet during installation and at first boot.
+# The system will automatically restart twice to ensure everything is installed correctly.
+#
+# Replace the following items:
+# <HOSTNAME> : Hostname of the system
+# <PASSWORD> : Generated SHA-512 hash (can generate with `openssl passwd -6`)
+# <USERNAME> : Initial User name
+# <ADDRESS-CIDR> : Address of network port in CIDR form (e.g. 10.1.1.10/24)
+# <GATEWAY-ADDRESS> : Address of network gateway
+# <NAMESERVER-N> : Address of DNS Nameservers
+# <SEARCH-DOMAIN> : DNS Search domain (e.g. my-domain.com)
+autoinstall:
+  version: 1
+  identity:
+    hostname: <HOSTNAME>
+    password: <PASSWORD>
+    username: <USERNAME>
+  refresh-installer:
+    update: yes
+  ssh:
+    install-server: yes
+    allow-pw: yes
+  kernel:
+    package: linux-nvidia-64k-hwe-22.04
+  timezone: geoip
+  storage:
+    layout:
+      name: lvm
+      sizing-policy: all
+      reset-partition: 12G
+  network:
+    version: 2
+    ethernets:
+      enp1s0f0np0:
+        dhcp4: no
+      enp1s0f1np1:
+        dhcp4: no
+    bonds:
+      bond0:
+        dhcp4: no
+        interfaces:
+          - enp1s0f0np0
+          - enp1s0f1np1
+        parameters:
+          mode: active-backup
+          primary: enp1s0f0np0
+        addresses:
+          - <ADDRESS-CIDR>
+        gateway4: <GATEWAY-ADDRESS>
+        nameservers:
+          addresses:
+            - <NAMESERVER-1>
+            - <NAMESERVER-2>
+          search:
+            - <SEARCH-DOMAIN>
+  updates: all
+  late-commands:
+    - wget -O /target/tmp/cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/cuda-keyring_1.1-1_all.deb
+    - curtin in-target --target=/target -- dpkg -i /tmp/cuda-keyring_1.1-1_all.deb
+    - curtin in-target --target=/target -- bash -c "wget -qO - http://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | gpg --dearmor -o /usr/share/keyrings/GPG-KEY-Mellanox.gpg"
+    - curtin in-target --target=/target -- bash -c 'echo "deb [signed-by=/usr/share/keyrings/GPG-KEY-Mellanox.gpg] https://linux.mellanox.com/public/repo/mlnx_ofed/latest/ubuntu22.04/arm64 /" > /etc/apt/sources.list.d/mlnx.list'
+    - curtin in-target --target=/target -- apt-get update
+    - cp /cdrom/cidata/first-boot.sh /target/etc/first-boot.sh
+    - chmod +x /target/etc/first-boot.sh
+    - cp /cdrom/cidata/first-boot.service /target/etc/systemd/system/first-boot.service
+    - curtin in-target --target=/target -- systemctl enable first-boot.service
