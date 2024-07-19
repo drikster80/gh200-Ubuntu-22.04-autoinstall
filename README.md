@@ -1,26 +1,30 @@
 # gh200-Ubuntu-22.04-autoinstall
 Automated installation of GH200 system using Ubuntu 22.04 using USB drive
 
-A lot of this came from the [Official Nvidia Ubuntu 22.04 Grace Installation Guide](https://docs.nvidia.com/grace-ubuntu-install-guide.pdf). If you have problems, please see that guide for more details.
+A lot of this came from the [Official Nvidia Ubuntu 22.04 Grace Installation Guide](https://docs.nvidia.com/grace-ubuntu-install-guide.pdf). If you have problems or want to install manually, please see that guide for more details. There is also a [Grace Performance Tuning Guide](https://docs.nvidia.com/grace-performance-tuning-guide.pdf) that may be helpful.
 
-This repo was created based on testing of the GH200 system (specifically the Supermicro ARS-111GL-NHR). The systems I'm testing on also have a Bluiefield-3 installed, but this should not matter for the installation.
+This repo was created based on testing of the GH200 system (specifically the Supermicro ARS-111GL-NHR). The systems I'm testing on also have a single Bluiefield-3 installed (although 2 BF-3 have also been tested), but this should not matter for the installation.
 
 The contained scripts will perform the following actions:
 
 ### During Installation:
 - Create a new user (as defined by user)
 - Make `linux-nvidia-64k-hwe-22.04` the default kernel
-- Create a 12G "recovery partition"
-- Install the [Nvidia CUDA SBSA repo](https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/)
 - Install the [Nvidia MLNX-OFED repo](https://linux.mellanox.com/public/repo/mlnx_ofed/latest/ubuntu22.04/arm64)
+- Install the [Nvidia CUDA SBSA repo](https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/)
 - Update/Upgrade all packages
 - Install the First-boot service that will run on the first boot
 
+(*NOTE:* Nvidia requires MLNX-OFED to be installed BEFORE the GPU drivers for NCCL to work correctly)
+
 ### During First Boot of system
+- Install mlnx-fw-updater mlnx-ofed-all
 - Install cuda-drivers and nvidia-kernel-open drivers
 - Install cuda-toolkit-12-4 nvidia-container-toolkit
-- Install mlnx-fw-updater mlnx-ofed-all
 - Update and enable the nvidia-persistenced service due to bug
+- Disable `irqbalance` service (recommended by performance tuning guide)
+- Disable NUMA balancing (recommended by performance tuning guide)
+- Automatically load the nvidia-peermem kernel module (required for NCCL and GPUDirect)
 - Disable the first-boot service
 - Reboot the system
 
@@ -68,6 +72,40 @@ menuentry "Install GH200 System (Requires Internet)" {
 ```
 
 ## Install the system via USB drive
-
+NOTE: There is a bug with the Supermicro ARS-111GL-NHR that causes the system to hang when rebooting with a USB drive connected. Unknown if this affects all GH200 systems. After installation, it's likely the screen is stuck. Simply remove the USB drive (or power cycle from BMC) and the system should boot right into the OS.
 
 ## Validating everything is working
+Run the following commands to validate all drivers are working:
+
+1. Confirm the nvidia drivers have loaded correctly:
+```
+nvidia-smi
+
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 555.42.06              Driver Version: 555.42.06      CUDA Version: 12.5     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GH200 480GB             On  |   00000009:01:00.0 Off |                    0 |
+| N/A   33C    P0             76W /  900W |       1MiB /  97871MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+
+```
+
+2. Ensure the nvidia-peermem kernel module has loaded correctly
+```
+lsmod | grep nvidia_peermem
+```
+
+3. 

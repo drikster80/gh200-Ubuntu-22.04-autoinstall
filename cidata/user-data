@@ -28,23 +28,12 @@ autoinstall:
     layout:
       name: lvm
       sizing-policy: all
-      reset-partition: 12G
   network:
     version: 2
     ethernets:
       enp1s0f0np0:
+        mtu: 9216
         dhcp4: no
-      enp1s0f1np1:
-        dhcp4: no
-    bonds:
-      bond0:
-        dhcp4: no
-        interfaces:
-          - enp1s0f0np0
-          - enp1s0f1np1
-        parameters:
-          mode: active-backup
-          primary: enp1s0f0np0
         addresses:
           - <ADDRESS-CIDR>
         gateway4: <GATEWAY-ADDRESS>
@@ -54,8 +43,13 @@ autoinstall:
             - <NAMESERVER-2>
           search:
             - <SEARCH-DOMAIN>
+      enp1s0f1np1:
+        mtu: 9216
+        dhcp4: no
   updates: all
   late-commands:
+    - curtin in-target --target=/target -- apt-get update
+    - curtin in-target --target=/target -- apt-get install -y vim git htop build-essential
     - wget -O /target/tmp/cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/cuda-keyring_1.1-1_all.deb
     - curtin in-target --target=/target -- dpkg -i /tmp/cuda-keyring_1.1-1_all.deb
     - curtin in-target --target=/target -- bash -c "wget -qO - http://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | gpg --dearmor -o /usr/share/keyrings/GPG-KEY-Mellanox.gpg"
